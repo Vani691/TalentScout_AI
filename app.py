@@ -1,49 +1,78 @@
 import streamlit as st
+import pandas as pd
+from sentence_transformers import SentenceTransformer, util
 import PyPDF2
 import docx
-from sentence_transformers import SentenceTransformer, util
 import re
 
 
 st.set_page_config(
-    page_title="TalentScout AI",
-    page_icon="🧠",
-    layout="wide"
+    page_title="TalentScout AI | Enterprise Edition",
+    page_icon="🔍",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 
+st.markdown("""
+    <style>
+    .big-font { font-size: 24px !important; font-weight: bold; }
+    
+    /* This fixes the 'White Box' issue by making metrics transparent/native */
+    [data-testid="stMetric"] {
+        background-color: rgba(255, 255, 255, 0.05); /* Subtle transparency */
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 15px;
+        border-radius: 10px;
+    }
+    
+    /* Vertical alignment for the header logo */
+    .header-logo {
+        vertical-align: middle;
+        margin-right: 15px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-def extract_text_from_pdf(file):
+
+if 'job_list' not in st.session_state:
+    st.session_state['job_list'] = []
+
+
+@st.cache_resource
+def load_transformer_model():
+    
+    return SentenceTransformer("all-MiniLM-L6-v2")
+
+model = load_transformer_model()
+
+
+def parse_file(file):
+    """Extracts text from PDF or DOCX files safely."""
+    text = ""
     try:
-        pdf_reader = PyPDF2.PdfReader(file)
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text() or ""
-        return text
+        if file.name.endswith(".pdf"):
+            reader = PyPDF2.PdfReader(file)
+            for page in reader.pages:
+                text += page.extract_text() or ""
+        elif file.name.endswith(".docx"):
+            doc = docx.Document(file)
+            for para in doc.paragraphs:
+                text += para.text + "\n"
+        else:
+            text = str(file.read(), "utf-8")
     except Exception as e:
-        st.error(f"Error reading PDF: {e}")
-        return ""
+        st.error(f"Error reading file: {e}")
+    return text
 
-def extract_text_from_docx(file):
-    try:
-        doc = docx.Document(file)
-        text = ""
-        for para in doc.paragraphs:
-            text += para.text + "\n"
-        return text
-    except Exception as e:
-        st.error(f"Error reading DOCX: {e}")
-        return ""
-
-def extract_skills(text):
+def analyze_skills(text):
     """
-    Extracts skills using a hybrid approach:
-    1. Direct Keyword Matching
-    2. Inference Matching (e.g., Django -> Python)
+    Hybrid Skill Extraction:
+    1. Direct keyword matching from a predefined database.
+    2. Inference logic (e.g., 'Django' implies 'Python').
     """
     
-    
-    skills_db = [
+    tech_stack = [
         "python", "java", "c++", "javascript", "typescript", "ruby", "swift", "go", "php",
         "react", "angular", "vue", "django", "flask", "fastapi", "spring boot", "laravel",
         "aws", "azure", "google cloud", "docker", "kubernetes", "jenkins", "terraform",
@@ -52,177 +81,179 @@ def extract_skills(text):
         "pandas", "numpy", "matplotlib", "html", "css", "git", "linux", "jira"
     ]
     
- 
-    inference_map = {
-        "django": "python",
-        "flask": "python",
-        "fastapi": "python",
-        "pandas": "python",
-        "numpy": "python",
-        "scikit-learn": "python",
-        "react": "javascript",
-        "angular": "javascript",
-        "vue": "javascript",
-        "typescript": "javascript",
-        "spring boot": "java",
-        "laravel": "php",
-        "tensorflow": "python",
-        "pytorch": "python",
-        "aws": "cloud computing",
-        "azure": "cloud computing",
-        "gcp": "cloud computing"
+    
+    inference_engine = {
+        "django": "python", "flask": "python", "fastapi": "python", 
+        "pandas": "python", "numpy": "python", "scikit-learn": "python",
+        "react": "javascript", "angular": "javascript", "vue": "javascript",
+        "spring boot": "java", "laravel": "php",
+        "tensorflow": "python", "pytorch": "python",
+        "aws": "cloud computing", "azure": "cloud computing", "gcp": "cloud computing"
     }
 
     text_lower = text.lower()
-    found_skills = set()
-    
-  
-    for skill in skills_db:
-        # Use regex to find whole words only (prevents finding "java" in "javascript")
-        if re.search(r'\b' + re.escape(skill) + r'\b', text_lower):
-            found_skills.add(skill)
+    detected_skills = set()
     
    
-    for skill in list(found_skills):
-        if skill in inference_map:
-            implied_skill = inference_map[skill]
-            found_skills.add(implied_skill)
+    for tech in tech_stack:
+        # Regex ensures we match "Java" but not "JavaScript" by accident
+        if re.search(r'\b' + re.escape(tech) + r'\b', text_lower):
+            detected_skills.add(tech)
+    
+    
+    for skill in list(detected_skills):
+        if skill in inference_engine:
+            detected_skills.add(inference_engine[skill])
 
-    return found_skills
+    return detected_skills
+
+def compute_match_score(job_desc, resume_text):
+    """
+    Calculates a weighted score based on:
+    - Semantic Similarity (Context)
+    - Hard Skill Overlap (Keywords)
+    """
+   
+    embedding_jd = model.encode(job_desc, convert_to_tensor=True)
+    embedding_resume = model.encode(resume_text, convert_to_tensor=True)
+    semantic_score = util.cos_sim(embedding_jd, embedding_resume).item() * 100
+
+    
+    jd_skills = analyze_skills(job_desc)
+    resume_skills = analyze_skills(resume_text)
+    
+    if jd_skills:
+        intersection = jd_skills.intersection(resume_skills)
+        skill_match = (len(intersection) / len(jd_skills)) * 100
+        final_score = (semantic_score * 0.6) + (skill_match * 0.4)
+    else:
+       
+        final_score = semantic_score
+        
+    return round(final_score, 1), jd_skills, resume_skills
 
 
-@st.cache_resource
-def load_model():
-    return SentenceTransformer("all-MiniLM-L6-v2")
 
-model = load_model()
-
+LOGO_URL = "https://cdn-icons-png.flaticon.com/512/2083/2083213.png"
 
 with st.sidebar:
-    st.title("🧠 TalentScout AI")
-    st.markdown("### Smart Resume Screening")
-    st.info(
-        "**Unfair Advantage:**\n"
-        "Traditional ATS rejects resumes that miss keywords.\n\n"
-        "**TalentScout AI** uses 'Inferred Competence'. If you list *Django*, we know you know *Python*."
-    )
+    st.image(LOGO_URL, width=60)
+    st.title("TalentScout AI")
+    st.caption("v2.1 Enterprise Edition")
     st.markdown("---")
-    st.write("Created for Hackathon 2026")
+    
+    st.markdown("### ⚙️ Controls")
+    if st.button("🗑️ Clear Job Database", use_container_width=True):
+        st.session_state['job_list'] = []
+        st.rerun()
 
-
-st.markdown(
-    """
-    <h1 style='text-align: center; color: #4F8BF9;'>TalentScout AI</h1>
-    <p style='text-align: center; font-size: 1.2em;'>
-    The ATS that thinks like a human recruiter.
-    </p>
-    <hr>
-    """,
-    unsafe_allow_html=True
-)
-
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("1️⃣ Job Description (JD)")
-    job_description = st.text_area(
-        "Paste Job Requirements",
-        height=300,
-        placeholder="e.g. Looking for a Python Developer with experience in SQL and Cloud Computing..."
+    st.markdown("---")
+    st.info(
+        "**💡 AI Insight:**\n"
+        "This system uses 'Inferred Competence'. "
+        "Example: If a candidate knows *Django*, we automatically credit them for *Python*."
     )
 
-with col2:
-    st.subheader("2️⃣ Candidate Resume")
-    input_method = st.radio("Choose input method:", ("Upload File", "Paste Text"))
+
+col_logo, col_title, col_metric = st.columns([1, 6, 2])
+
+with col_logo:
+    st.image(LOGO_URL, width=70)
+
+with col_title:
+    st.markdown("# TalentScout AI")
+    st.caption("Intelligent Resume Screening & Skill Gap Analysis")
+
+with col_metric:
+    st.metric(label="Active Positions", value=len(st.session_state['job_list']))
+
+st.divider()
+
+
+st.subheader("1️⃣  Job Database Management")
+
+with st.expander("➕ Add a New Position", expanded=not st.session_state['job_list']):
+    c1, c2 = st.columns([1, 2])
+    with c1:
+        new_role_title = st.text_input("Job Title", placeholder="e.g. Full Stack Engineer")
+    with c2:
+        new_role_desc = st.text_area("Job Description", placeholder="Paste the full job description here...", height=100)
     
-    resume_text = ""
-    if input_method == "Upload File":
-        uploaded_file = st.file_uploader("Upload PDF or DOCX", type=["pdf", "docx"])
-        if uploaded_file is not None:
-            if uploaded_file.name.endswith(".pdf"):
-                resume_text = extract_text_from_pdf(uploaded_file)
-            elif uploaded_file.name.endswith(".docx"):
-                resume_text = extract_text_from_docx(uploaded_file)
-            st.success("✅ Resume Loaded Successfully")
-    else:
-        resume_text = st.text_area("Paste Resume Text", height=200)
-
-
-if st.button("🚀 Analyze Candidate", type="primary", use_container_width=True):
-    if not job_description or not resume_text:
-        st.warning("⚠️ Please provide both a Job Description and a Resume to proceed.")
-    else:
-        with st.spinner("🔍 Reading Resume... Extracting Skills... Calculating Match..."):
-            
-           
-            emb1 = model.encode(job_description, convert_to_tensor=True)
-            emb2 = model.encode(resume_text, convert_to_tensor=True)
-            semantic_score = util.cos_sim(emb1, emb2).item() * 100
-
-           
-            jd_skills = extract_skills(job_description)
-            resume_skills = extract_skills(resume_text)
-            
-        
-            missing_skills = jd_skills - resume_skills
-            matching_skills = jd_skills.intersection(resume_skills)
-            
-           
-            if len(jd_skills) > 0:
-                skill_match_score = (len(matching_skills) / len(jd_skills)) * 100
-                # 60% Semantic + 40% Hard Skills
-                final_score = (semantic_score * 0.3) + (skill_match_score * 0.7)
-            else:
-                # If no skills detected in JD, rely 100% on semantic context
-                final_score = semantic_score
-
-      
-        st.markdown("---")
-        
-       
-        m1, m2, m3 = st.columns(3)
-        with m1:
-            st.metric("Final Match Score", f"{final_score:.1f}%")
-        with m2:
-            st.metric("Semantic Similarity", f"{semantic_score:.1f}%")
-        with m3:
-            if len(jd_skills) > 0:
-                st.metric("Skill Match", f"{len(matching_skills)}/{len(jd_skills)}")
-            else:
-                st.metric("Skill Match", "N/A")
-
-      
-        st.progress(int(final_score))
-        
-        if final_score >= 75:
-            st.success("🌟 **High Match:** This candidate is a strong fit!")
-        elif final_score >= 50:
-            st.warning("⚠️ **Moderate Match:** Good potential, but missing some key requirements.")
+    if st.button("Save Position to Database", type="primary"):
+        if new_role_title and new_role_desc:
+            st.session_state['job_list'].append({
+                "title": new_role_title, 
+                "desc": new_role_desc,
+                "date": pd.Timestamp.now().strftime("%Y-%m-%d")
+            })
+            st.success(f"✅ Position '{new_role_title}' added successfully!")
+            st.rerun()
         else:
-            st.error("❌ **Low Match:** Significant skills gap detected.")
+            st.warning("⚠️ Please provide both a Job Title and Description.")
 
-       
-        st.markdown("### 🧩 Skill Gap Analysis")
-        
-        c1, c2 = st.columns(2)
-        
-        with c1:
-            st.markdown("#### ✅ Matched Skills (Detected & Inferred)")
-            if matching_skills:
-                # Display tags
-                st.write(", ".join([f"`{s}`" for s in matching_skills]))
-            else:
-                st.write("No direct skill matches found.")
 
-        with c2:
-            st.markdown("#### ⚠️ Missing Skills")
-            if missing_skills:
-                for skill in missing_skills:
-                    st.markdown(f"- 🔴 **{skill.title()}**")
-                st.caption("Tip: Use these keywords to upskill or update the resume.")
-            else:
-                if len(jd_skills) > 0:
-                    st.success("🎉 No missing skills! Perfect technical match.")
+if st.session_state['job_list']:
+    st.caption("Current Openings in Database:")
+    df_jobs = pd.DataFrame(st.session_state['job_list'])
+    st.dataframe(df_jobs[["title", "date"]], use_container_width=True, hide_index=True)
+
+st.divider()
+
+
+st.subheader("2️⃣ Candidate Evaluation")
+
+uploaded_resume = st.file_uploader("Upload Candidate Resume (PDF/DOCX)", type=["pdf", "docx", "txt"])
+
+if uploaded_resume and st.session_state['job_list']:
+    
+    resume_content = parse_file(uploaded_resume)
+    
+    if st.button("🚀 Analyze Candidate Fit", type="primary", use_container_width=True):
+        
+        with st.spinner("🤖 AI is analyzing semantic context and extracting skills..."):
+            analysis_results = []
+            
+            for job in st.session_state['job_list']:
+                score, jd_skills, resume_skills = compute_match_score(job['desc'], resume_content)
+                missing_skills = jd_skills - resume_skills
+                
+                analysis_results.append({
+                    "Role": job['title'],
+                    "Match Score": score,  
+                    "Missing Critical Skills": ", ".join(list(missing_skills)[:3]) if missing_skills else "None",
+                    "_full_missing": missing_skills 
+                })
+            
+            df_results = pd.DataFrame(analysis_results).sort_values(by="Match Score", ascending=False)
+            best_match = df_results.iloc[0]
+
+            st.markdown("### 🏆 Analysis Report")
+            
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                st.metric("Top Recommended Role", best_match['Role'])
+            with m2:
+                st.metric("Match Confidence", f"{best_match['Match Score']}%")
+            with m3:
+                st.metric("Technical Fit", "Strong" if best_match['Match Score'] > 75 else "Moderate" if best_match['Match Score'] > 50 else "Weak")
+
+           
+            st.info(f"**Skill Gap Analysis for '{best_match['Role']}':**")
+            
+            col_gap1, col_gap2 = st.columns(2)
+            with col_gap1:
+                if best_match['_full_missing']:
+                    st.write("⚠️ **Missing Skills:**")
+                    for skill in best_match['_full_missing']:
+                        st.markdown(f"- 🔴 {skill.title()}")
                 else:
-                    st.write("No specific skills found in JD to check against.")
+                    st.success("✅ No critical skills missing!")
+            
+            with col_gap2:
+                 st.write("💡 **Recommendation:**")
+                 if best_match['Match Score'] > 80:
+                     st.write("Candidate is a strong fit. Proceed to interview.")
+                 elif best_match['Match Score'] > 50:
+                     st.write("Candidate has potential but lacks specific tech stack experience.")
+                 else:
+                     st.write("Candidate profile does not align with current requirements.")
