@@ -8,7 +8,7 @@ import re
 
 st.set_page_config(
     page_title="TalentScout AI | Enterprise Edition",
-    page_icon="🔍",
+    page_icon="https://cdn-icons-png.flaticon.com/512/2083/2083213.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -26,7 +26,7 @@ st.markdown("""
         border-radius: 10px;
     }
     
-   
+    /* Vertical alignment for the header logo */
     .header-logo {
         vertical-align: middle;
         margin-right: 15px;
@@ -45,6 +45,7 @@ def load_transformer_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
 
 model = load_transformer_model()
+
 
 
 def parse_file(file):
@@ -94,12 +95,13 @@ def analyze_skills(text):
     text_lower = text.lower()
     detected_skills = set()
     
-   
+    # Phase 1: Keyword Scan
     for tech in tech_stack:
-       
+        
         if re.search(r'\b' + re.escape(tech) + r'\b', text_lower):
             detected_skills.add(tech)
     
+    # Phase 2: Logical Inference
     
     for skill in list(detected_skills):
         if skill in inference_engine:
@@ -113,7 +115,7 @@ def compute_match_score(job_desc, resume_text):
     - Semantic Similarity (Context)
     - Hard Skill Overlap (Keywords)
     """
-   
+    
     embedding_jd = model.encode(job_desc, convert_to_tensor=True)
     embedding_resume = model.encode(resume_text, convert_to_tensor=True)
     semantic_score = util.cos_sim(embedding_jd, embedding_resume).item() * 100
@@ -125,9 +127,10 @@ def compute_match_score(job_desc, resume_text):
     if jd_skills:
         intersection = jd_skills.intersection(resume_skills)
         skill_match = (len(intersection) / len(jd_skills)) * 100
+        
         final_score = (semantic_score * 0.6) + (skill_match * 0.4)
     else:
-       
+        
         final_score = semantic_score
         
     return round(final_score, 1), jd_skills, resume_skills
@@ -143,7 +146,7 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("### ⚙️ Controls")
-    if st.button("🗑️ Clear Job Database", width='stretch'):
+    if st.button("🗑️ Clear Job Database", use_container_width=True):
         st.session_state['job_list'] = []
         st.rerun()
 
@@ -153,6 +156,8 @@ with st.sidebar:
         "This system uses 'Inferred Competence'. "
         "Example: If a candidate knows *Django*, we automatically credit them for *Python*."
     )
+
+
 
 
 col_logo, col_title, col_metric = st.columns([1, 6, 2])
@@ -170,7 +175,7 @@ with col_metric:
 st.divider()
 
 
-st.subheader("1️  Job Database Management")
+st.subheader("1.  Job Database Management")
 
 with st.expander("➕ Add a New Position", expanded=not st.session_state['job_list']):
     c1, c2 = st.columns([1, 2])
@@ -195,12 +200,12 @@ with st.expander("➕ Add a New Position", expanded=not st.session_state['job_li
 if st.session_state['job_list']:
     st.caption("Current Openings in Database:")
     df_jobs = pd.DataFrame(st.session_state['job_list'])
-    st.dataframe(df_jobs[["title", "date"]], width='stretch', hide_index=True)
+    st.dataframe(df_jobs[["title", "date"]], use_container_width=True, hide_index=True)
 
 st.divider()
 
 
-st.subheader("2️ Candidate Evaluation")
+st.subheader("2. Candidate Evaluation")
 
 uploaded_resume = st.file_uploader("Upload Candidate Resume (PDF/DOCX)", type=["pdf", "docx", "txt"])
 
@@ -208,10 +213,12 @@ if uploaded_resume and st.session_state['job_list']:
     
     resume_content = parse_file(uploaded_resume)
     
-    if st.button(" Analyze Candidate Fit", type="primary", width='stretch'):
+    if st.button("🚀 Analyze Candidate Fit", type="primary", use_container_width=True):
         
-        with st.spinner(" AI is analyzing semantic context and extracting skills..."):
+        
+        with st.spinner("🤖 AI is analyzing semantic context and extracting skills..."):
             analysis_results = []
+            
             
             for job in st.session_state['job_list']:
                 score, jd_skills, resume_skills = compute_match_score(job['desc'], resume_content)
@@ -224,10 +231,16 @@ if uploaded_resume and st.session_state['job_list']:
                     "_full_missing": missing_skills 
                 })
             
+            
             df_results = pd.DataFrame(analysis_results).sort_values(by="Match Score", ascending=False)
             best_match = df_results.iloc[0]
 
-            st.markdown("###  Analysis Report")
+            
+            st.markdown("---")
+            
+            
+            st.markdown("### 🏆 Analysis Report")
+            
             
             m1, m2, m3 = st.columns(3)
             with m1:
@@ -237,7 +250,7 @@ if uploaded_resume and st.session_state['job_list']:
             with m3:
                 st.metric("Technical Fit", "Strong" if best_match['Match Score'] > 75 else "Moderate" if best_match['Match Score'] > 50 else "Weak")
 
-           
+            
             st.info(f"**Skill Gap Analysis for '{best_match['Role']}':**")
             
             col_gap1, col_gap2 = st.columns(2)
@@ -258,10 +271,13 @@ if uploaded_resume and st.session_state['job_list']:
                  else:
                      st.write("Candidate profile does not align with current requirements.")
 
-          
-            st.markdown("####  Cross-Role Comparison")
             
-          
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            
+            st.markdown("#### 📊 Cross-Role Comparison")
+            
+            
             st.dataframe(
                 df_results.drop(columns=["_full_missing"]),
                 column_config={
@@ -273,7 +289,7 @@ if uploaded_resume and st.session_state['job_list']:
                         max_value=100,
                     ),
                 },
-                width='stretch',
+                use_container_width=True,
                 hide_index=True
             )
 
