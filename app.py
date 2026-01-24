@@ -26,7 +26,7 @@ st.markdown("""
         border-radius: 10px;
     }
     
-    /* Vertical alignment for the header logo */
+   
     .header-logo {
         vertical-align: middle;
         margin-right: 15px;
@@ -96,7 +96,7 @@ def analyze_skills(text):
     
    
     for tech in tech_stack:
-        # Regex ensures we match "Java" but not "JavaScript" by accident
+       
         if re.search(r'\b' + re.escape(tech) + r'\b', text_lower):
             detected_skills.add(tech)
     
@@ -143,7 +143,7 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("### ⚙️ Controls")
-    if st.button("🗑️ Clear Job Database", use_container_width=True):
+    if st.button("🗑️ Clear Job Database", width='stretch'):
         st.session_state['job_list'] = []
         st.rerun()
 
@@ -170,7 +170,7 @@ with col_metric:
 st.divider()
 
 
-st.subheader("1️⃣  Job Database Management")
+st.subheader("1️  Job Database Management")
 
 with st.expander("➕ Add a New Position", expanded=not st.session_state['job_list']):
     c1, c2 = st.columns([1, 2])
@@ -195,12 +195,12 @@ with st.expander("➕ Add a New Position", expanded=not st.session_state['job_li
 if st.session_state['job_list']:
     st.caption("Current Openings in Database:")
     df_jobs = pd.DataFrame(st.session_state['job_list'])
-    st.dataframe(df_jobs[["title", "date"]], use_container_width=True, hide_index=True)
+    st.dataframe(df_jobs[["title", "date"]], width='stretch', hide_index=True)
 
 st.divider()
 
 
-st.subheader("2️⃣ Candidate Evaluation")
+st.subheader("2️ Candidate Evaluation")
 
 uploaded_resume = st.file_uploader("Upload Candidate Resume (PDF/DOCX)", type=["pdf", "docx", "txt"])
 
@@ -208,9 +208,9 @@ if uploaded_resume and st.session_state['job_list']:
     
     resume_content = parse_file(uploaded_resume)
     
-    if st.button("🚀 Analyze Candidate Fit", type="primary", use_container_width=True):
+    if st.button(" Analyze Candidate Fit", type="primary", width='stretch'):
         
-        with st.spinner("🤖 AI is analyzing semantic context and extracting skills..."):
+        with st.spinner(" AI is analyzing semantic context and extracting skills..."):
             analysis_results = []
             
             for job in st.session_state['job_list']:
@@ -227,7 +227,7 @@ if uploaded_resume and st.session_state['job_list']:
             df_results = pd.DataFrame(analysis_results).sort_values(by="Match Score", ascending=False)
             best_match = df_results.iloc[0]
 
-            st.markdown("### 🏆 Analysis Report")
+            st.markdown("###  Analysis Report")
             
             m1, m2, m3 = st.columns(3)
             with m1:
@@ -257,3 +257,25 @@ if uploaded_resume and st.session_state['job_list']:
                      st.write("Candidate has potential but lacks specific tech stack experience.")
                  else:
                      st.write("Candidate profile does not align with current requirements.")
+
+          
+            st.markdown("####  Cross-Role Comparison")
+            
+          
+            st.dataframe(
+                df_results.drop(columns=["_full_missing"]),
+                column_config={
+                    "Match Score": st.column_config.ProgressColumn(
+                        "Match Score",
+                        help="AI Confidence Score",
+                        format="%.1f%%",
+                        min_value=0,
+                        max_value=100,
+                    ),
+                },
+                width='stretch',
+                hide_index=True
+            )
+
+elif not st.session_state['job_list']:
+    st.info("👆 Please add a job position above to start screening.")
