@@ -57,65 +57,65 @@ Conventional ATS systems often reject capable candidates simply because exact ke
 
 ### 4️⃣ Scoring Logic
 The final match percentage is calculated using a weighted formula:
-```math
-Final Score = (Semantic Similarity × 0.6) + (Skill Match Score × 0.4)
+
+> **Final Score = (Semantic Similarity × 0.6) + (Skill Match Score × 0.4)**
 
 ### 5️⃣ Output
-
-- **Match Percentage**
-- **Recommended Job Role**
-- **Missing Skills List**
-- **Comparison Table across all Open Roles**
+- Match percentage
+- Recommended job role
+- Missing skills list
+- Comparison table across all open roles
 
 ---
 
 ## 📊 Why TalentScout AI?
 
 | Feature | ❌ Traditional ATS | ✅ TalentScout AI |
-|------|------------------|----------------|
-| Matching Method | Keyword-based | Semantic (Meaning-based) |
-| Skill Inference | ❌ No | ✅ Yes (Infers Context) |
-| Missing Keywords | Auto-reject | Context-aware analysis |
-| Transparency | Black-box | Clear gap analysis |
-| Role Comparison | Manual | Automatic ranking |
+|------|-----------------|----------------|
+| **Matching Method** | Keyword-based | **Semantic (Meaning-based)** |
+| **Skill Inference** | ❌ No | **✅ Yes (Infers Context)** |
+| **Missing Keywords** | Auto-reject | **Context-aware analysis** |
+| **Transparency** | Black-box | **Clear gap analysis** |
+| **Role Comparison** | Manual | **Automatic ranking** |
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Language:** Python  
-- **AI/ML:** Sentence Transformers (`all-MiniLM-L6-v2`)  
-- **NLP:** Cosine Similarity, Regex  
-- **File Handling:** PyPDF2, python-docx  
-- **Frontend/UI:** Streamlit  
-- **Data Handling:** Pandas  
+- **Language:** Python
+- **AI/ML:** Sentence Transformers (`all-MiniLM-L6-v2`)
+- **NLP:** Cosine Similarity, Regex
+- **File Handling:** PyPDF2, python-docx
+- **Frontend/UI:** Streamlit
+- **Data Handling:** Pandas
 
 ---
 
 ## ▶️ How to Run Locally
 
-Clone the Repository
-```bash
-git clone https://github.com/your-username/TalentScout-AI.git
-cd TalentScout-AI
+1. **Clone the Repository**
+   ```bash
+   git clone [https://github.com/your-username/TalentScout-AI.git](https://github.com/your-username/TalentScout-AI.git)
+   cd TalentScout-AI
+   Create Virtual Environment
 
-Create Virtual Environment
 Bash
 python -m venv venv
+
 # Windows:
 venv\Scripts\activate
+
 # Mac/Linux:
 source venv/bin/activate
-
 Install Dependencies
+
 Bash
 pip install streamlit sentence-transformers torch PyPDF2 python-docx pandas
-
 Run the App
+
 Bash
 streamlit run app.py
-
-##🎯 Target Users
+🎯 Target Users
 HR Teams: To automate initial screening.
 
 Recruiters: To find "hidden gems" rejected by keyword filters.
@@ -128,8 +128,11 @@ Placement Cells: To help students optimize resumes.
 Project built for Multiverse of Tech Hackathon 2026 at Smt. Indira Gandhi College of Engineering.
 
 Shravani Mane (Team Lead)
+
 Shubham
+
 Sanika
+
 Sunaina
 
 📌 Hackathon Note
