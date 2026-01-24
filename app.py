@@ -4,36 +4,14 @@ import docx
 from sentence_transformers import SentenceTransformer, util
 import re
 
-# -------------------------------
-# HELPER FUNCTIONS
-# -------------------------------
-@st.cache_resource
-def load_model():
-    return SentenceTransformer("all-MiniLM-L6-v2")
 
-def extract_skills(text):
-    # Simple skill extraction using regex (expand as needed)
-    skills = set()
-    skill_keywords = [
-        'python', 'java', 'javascript', 'sql', 'machine learning', 'ai', 'data analysis',
-        'react', 'node.js', 'docker', 'aws', 'git', 'agile', 'scrum'
-    ]
-    text_lower = text.lower()
-    for skill in skill_keywords:
-        if skill in text_lower:
-            skills.add(skill.title())
-    return skills
-
-model = load_model()
 st.set_page_config(
     page_title="TalentScout AI",
     page_icon="🧠",
     layout="wide"
 )
 
-# -------------------------------
-# 2. HELPER FUNCTIONS
-# -------------------------------
+
 
 def extract_text_from_pdf(file):
     try:
@@ -64,7 +42,7 @@ def extract_skills(text):
     2. Inference Matching (e.g., Django -> Python)
     """
     
-    # --- Database of Skills ---
+    
     skills_db = [
         "python", "java", "c++", "javascript", "typescript", "ruby", "swift", "go", "php",
         "react", "angular", "vue", "django", "flask", "fastapi", "spring boot", "laravel",
@@ -74,8 +52,7 @@ def extract_skills(text):
         "pandas", "numpy", "matplotlib", "html", "css", "git", "linux", "jira"
     ]
     
-    # --- Inference Map (The "Smart" Logic) ---
-    # This teaches the AI that specific frameworks imply knowledge of the parent language.
+ 
     inference_map = {
         "django": "python",
         "flask": "python",
@@ -99,14 +76,13 @@ def extract_skills(text):
     text_lower = text.lower()
     found_skills = set()
     
-    # A. Direct Keyword Matching
+  
     for skill in skills_db:
         # Use regex to find whole words only (prevents finding "java" in "javascript")
         if re.search(r'\b' + re.escape(skill) + r'\b', text_lower):
             found_skills.add(skill)
     
-    # B. Inference Matching
-    # If a framework is found, automatically add the parent language
+   
     for skill in list(found_skills):
         if skill in inference_map:
             implied_skill = inference_map[skill]
@@ -114,18 +90,14 @@ def extract_skills(text):
 
     return found_skills
 
-# -------------------------------
-# 3. LOAD AI MODEL
-# -------------------------------
+
 @st.cache_resource
 def load_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
 
 model = load_model()
 
-# -------------------------------
-# 4. SIDEBAR & UI LAYOUT
-# -------------------------------
+
 with st.sidebar:
     st.title("🧠 TalentScout AI")
     st.markdown("### Smart Resume Screening")
@@ -137,7 +109,7 @@ with st.sidebar:
     st.markdown("---")
     st.write("Created for Hackathon 2026")
 
-# Main Header
+
 st.markdown(
     """
     <h1 style='text-align: center; color: #4F8BF9;'>TalentScout AI</h1>
@@ -149,7 +121,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Input Section
+
 col1, col2 = st.columns(2)
 
 with col1:
@@ -176,38 +148,81 @@ with col2:
     else:
         resume_text = st.text_area("Paste Resume Text", height=200)
 
-# -------------------------------
-# 5. ANALYSIS LOGIC
-# -------------------------------
+
 if st.button("🚀 Analyze Candidate", type="primary", use_container_width=True):
     if not job_description or not resume_text:
         st.warning("⚠️ Please provide both a Job Description and a Resume to proceed.")
     else:
         with st.spinner("🔍 Reading Resume... Extracting Skills... Calculating Match..."):
             
-            # --- STEP 1: Semantic Match (The Context) ---
-            # This captures the "vibe" and general meaning
+           
             emb1 = model.encode(job_description, convert_to_tensor=True)
             emb2 = model.encode(resume_text, convert_to_tensor=True)
             semantic_score = util.cos_sim(emb1, emb2).item() * 100
 
-            # --- STEP 2: Smart Skill Extraction ---
+           
             jd_skills = extract_skills(job_description)
             resume_skills = extract_skills(resume_text)
             
-            # Set Operations
+        
             missing_skills = jd_skills - resume_skills
             matching_skills = jd_skills.intersection(resume_skills)
             
-            # Calculate final score as average of semantic and skill match
-            skill_match_pct = (len(matching_skills) / max(1, len(jd_skills))) * 100
-            final_score = (semantic_score + skill_match_pct) / 2
-        
+           
+            if len(jd_skills) > 0:
+                skill_match_score = (len(matching_skills) / len(jd_skills)) * 100
+                # 60% Semantic + 40% Hard Skills
+                final_score = (semantic_score * 0.3) + (skill_match_score * 0.7)
+            else:
+                # If no skills detected in JD, rely 100% on semantic context
+                final_score = semantic_score
 
-        # -------------------------------
-        # 6. RESULTS DISPLAY
-        # -------------------------------
+      
         st.markdown("---")
         
-        # Top Metrics
-        st.metric("Final Match Score", f"{final_score:.1f}%")
+       
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            st.metric("Final Match Score", f"{final_score:.1f}%")
+        with m2:
+            st.metric("Semantic Similarity", f"{semantic_score:.1f}%")
+        with m3:
+            if len(jd_skills) > 0:
+                st.metric("Skill Match", f"{len(matching_skills)}/{len(jd_skills)}")
+            else:
+                st.metric("Skill Match", "N/A")
+
+      
+        st.progress(int(final_score))
+        
+        if final_score >= 75:
+            st.success("🌟 **High Match:** This candidate is a strong fit!")
+        elif final_score >= 50:
+            st.warning("⚠️ **Moderate Match:** Good potential, but missing some key requirements.")
+        else:
+            st.error("❌ **Low Match:** Significant skills gap detected.")
+
+       
+        st.markdown("### 🧩 Skill Gap Analysis")
+        
+        c1, c2 = st.columns(2)
+        
+        with c1:
+            st.markdown("#### ✅ Matched Skills (Detected & Inferred)")
+            if matching_skills:
+                # Display tags
+                st.write(", ".join([f"`{s}`" for s in matching_skills]))
+            else:
+                st.write("No direct skill matches found.")
+
+        with c2:
+            st.markdown("#### ⚠️ Missing Skills")
+            if missing_skills:
+                for skill in missing_skills:
+                    st.markdown(f"- 🔴 **{skill.title()}**")
+                st.caption("Tip: Use these keywords to upskill or update the resume.")
+            else:
+                if len(jd_skills) > 0:
+                    st.success("🎉 No missing skills! Perfect technical match.")
+                else:
+                    st.write("No specific skills found in JD to check against.")
