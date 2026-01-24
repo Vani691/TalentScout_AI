@@ -18,15 +18,15 @@ st.markdown("""
     <style>
     .big-font { font-size: 24px !important; font-weight: bold; }
     
-    /* This fixes the 'White Box' issue by making metrics transparent/native */
+   
     [data-testid="stMetric"] {
-        background-color: rgba(255, 255, 255, 0.05); /* Subtle transparency */
+        background-color: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.1);
         padding: 15px;
         border-radius: 10px;
     }
     
-    /* Vertical alignment for the header logo */
+    
     .header-logo {
         vertical-align: middle;
         margin-right: 15px;
@@ -142,7 +142,7 @@ LOGO_URL = "https://cdn-icons-png.flaticon.com/512/2083/2083213.png"
 with st.sidebar:
     st.image(LOGO_URL, width=60)
     st.title("TalentScout AI")
-    st.caption("v2.1 Enterprise Edition")
+    st.caption("Smart Resume Screening")
     st.markdown("---")
     
     st.markdown("### ⚙️ Controls")
