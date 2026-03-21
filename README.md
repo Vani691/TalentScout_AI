@@ -95,7 +95,7 @@ The final match percentage is calculated using a weighted formula:
 
 1. **Clone the Repository**
    ```bash
-   git clone [https://github.com/your-username/TalentScout-AI.git](https://github.com/your-username/TalentScout-AI.git)
+   git clone [https://github.com/Vani691/TalentScout-AI.git](https://github.com/Vani691/TalentScout-AI.git)
    cd TalentScout-AI
    Create Virtual Environment
 
